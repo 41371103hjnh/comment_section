@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>🐣留言小卡牆🌼</title>
+
+  <style>
+    :root {
+      --bg: #f8f9f2;
+      --fg: #3f5974;
+      --muted: #545454;
+      --brand: #baafb7;
+      --brand-2: #3f5974;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 24px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--brand-2);
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #d4d4d8;
+      background: #fafafa;
+      color: var(--fg);
+    }
+
+    textarea {
+      min-height: 80px;
+    }
+
+    /* 顏色圓點 */
+    .color-select {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .color-option {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: 0.15s;
+    }
+
+    .color-option.selected {
+      border: 2px solid var(--brand-2);
+      box-shadow: 0 0 4px rgba(63, 89, 116, 0.4);
+    }
+
+    button[type="submit"] {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: var(--brand);
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button[type="submit"]:hover {
+      background: var(--brand-2);
+    }
+
+    .cards-wrapper {
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      position: relative;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(0,0,0,0.08);
+      color: var(--fg);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .card-message {
+      margin-top: 6px;
+      font-size: 14px;
+      color: var(--fg);
+    }
+
+    .delete-btn {
+      position: absolute;     /* ⭐ 新增 */
+      top: 10px;              /* ⭐ 控制位置 */
+      right: 10px;
+      margin-top: 25px;
+      padding: 6px 10px;
+      background: #ef4444;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .delete-btn:hover {
+      background: #dc2626;
+    }
+
+    .empty-tip {
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🐣留言小卡牆🌼</h1>
+
+    <form id="commentForm">
+      <div>
+        <label>Your Nickname</label>
+        <input type="text" id="nickname" required />
+      </div>
+
+      <div>
+        <label>Message</label>
+        <textarea id="message" required></textarea>
+      </div>
+
+      <div>
+        <label>選擇卡片顏色</label>
+        <div class="color-select" id="colorSelect">
+          <div class="color-option selected" data-color="#f5f5dc" style="background:#f5f5dc;"></div>
+          <div class="color-option" data-color="#e8f5e9" style="background:#e8f5e9;"></div>
+          <div class="color-option" data-color="#f3e5f5" style="background:#f3e5f5;"></div>
+          <div class="color-option" data-color="#e0f2fe" style="background:#e0f2fe;"></div>
+          <div class="color-option" data-color="#fff7ed" style="background:#fff7ed;"></div>
+        </div>
+      </div>
+
+      <button type="submit">送出留言</button>
+    </form>
+
+    <p id="emptyTip" class="empty-tip">還沒有任何留言，當第一個留下小卡的人吧！</p>
+
+    <div id="cardsContainer" class="cards-wrapper"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('commentForm');
+    const nicknameInput = document.getElementById('nickname');
+    const messageInput = document.getElementById('message');
+    const colorOptions = document.querySelectorAll('.color-option');
+    const cardsContainer = document.getElementById('cardsContainer');
+    const emptyTip = document.getElementById('emptyTip');
+
+    let selectedColor = "#f5f5dc";
+    let cards = [];
+
+    /* 初始化 ─ 讀取 localStorage */
+    function loadFromLocalStorage() {
+      const data = localStorage.getItem("cards");
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveToLocalStorage(cards) {
+      localStorage.setItem("cards", JSON.stringify(cards));
+    }
+
+    /* 顏色選擇器 */
+    colorOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        colorOptions.forEach(o => o.classList.remove('selected'));
+        option.classList.add('selected');
+        selectedColor = option.dataset.color;
+      });
+    });
+
+    /* 時間格式 */
+    function getTime() {
+      const now = new Date();
+      return `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+
+    /* 小卡 Element */
+    function createCard(data, index) {
+      const card = document.createElement('div');
+      card.className = "card";
+      card.style.background = data.color;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <strong>${data.nickname}</strong>
+          <span>${data.time}</span>
+        </div>
+        <div class="card-message">${data.message}</div>
+        <button class="delete-btn" data-index="${index}">刪除</button>
+      `;
+
+      return card;
+    }
+
+    /* 渲染全部留言 */
+    function renderCards() {
+      cardsContainer.innerHTML = "";
+      cards.forEach((c, i) => {
+        cardsContainer.appendChild(createCard(c, i));
+      });
+    }
+
+    /* 初次載入留言 */
+    cards = loadFromLocalStorage();
+    if (cards.length > 0) emptyTip.style.display = "none";
+    renderCards();
+
+    /* 表單送出 */
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const nickname = nicknameInput.value.trim();
+      const message = messageInput.value.trim();
+      if (!nickname || !message) return alert("請填寫暱稱與留言！");
+
+      emptyTip.style.display = "none";
+
+      const newCard = {
+        nickname,
+        message,
+        color: selectedColor,
+        time: getTime()
+      };
+
+      cards.unshift(newCard);
+      saveToLocalStorage(cards);
+
+      renderCards();
+
+      nicknameInput.value = "";
+      messageInput.value = "";
+
+      colorOptions.forEach(o => o.classList.remove('selected'));
+      colorOptions[0].classList.add('selected');
+      selectedColor = colorOptions[0].dataset.color;
+
+      nicknameInput.focus();
+    });
+
+    /* 刪除留言 */
+    cardsContainer.addEventListener('click', function(e) {
+      if (!e.target.classList.contains('delete-btn')) return;
+
+      const index = Number(e.target.dataset.index);
+
+      cards.splice(index, 1);
+      saveToLocalStorage(cards);
+
+      renderCards();
+
+      if (cards.length === 0) {
+        emptyTip.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
